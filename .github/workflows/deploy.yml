@@ -11,24 +11,14 @@ jobs:
     steps:
       - name: Checkout devops repo
         uses: actions/checkout@v6
-      - name: Show payload
-        run: |
-          echo "Event: ${{ github.event.action }}"
-          echo "Payload: ${{ toJson(github.event.client_payload) }}"
-      - name: Deploy stub
-        run: |
-          echo "Deploying to server..."
-          echo "Image from payload: ${{ github.event.client_payload.image }}"
-          echo "...but there's no server yet..."
-
-      # - name: Deploy using SSH
-      #   uses: appleboy/ssh-action@v1
-      #   with:
-      #     host: ${{ secrets.SSH_HOST }}
-      #     username: ${{ secrets.SSH_USER }}
-      #     key: ${{ secrets.SSH_KEY }}
-      #     script: |
-      #       cd /opt/crossfitbuddy
-      #       docker compose pull backend frontend
-      #       docker compose up -d backend frontend
-      #       docker image prune -f
+      - name: Deploy using SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/crossfitbuddy
+            docker compose pull backend frontend
+            docker compose up -d backend frontend
+            docker image prune -f

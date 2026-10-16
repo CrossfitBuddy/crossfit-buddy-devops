@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    image: dhi.io/minio:latest
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_USER}
@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ghcr.io/CrossfitBuddy/crossfit-buddy-backend:latest
+    image: ghcr.io/crossfitbuddy/crossfit-buddy-backend:latest
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crossfitbuddy
       SPRING_DATASOURCE_USERNAME: app
@@ -42,7 +42,9 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/CrossfitBuddy/crossfit-buddy-frontend:latest
+    image: ghcr.io/crossfitbuddy/crossfit-buddy-frontend:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/default.conf:ro #перезапись nginx.conf фронта
     depends_on:
       - backend
     restart: unless-stopped
@@ -61,3 +63,4 @@ services:
 volumes:
   pg_data:
   minio_data:
+    
