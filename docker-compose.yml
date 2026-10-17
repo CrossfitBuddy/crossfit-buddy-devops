@@ -44,7 +44,7 @@ services:
   frontend:
     image: ghcr.io/crossfitbuddy/crossfit-buddy-frontend:latest
     volumes:
-      - ./nginx.conf:/etc/nginx/default.conf:ro #перезапись nginx.conf фронта
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro #перезапись nginx.conf фронта
     depends_on:
       - backend
     restart: unless-stopped
