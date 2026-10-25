@@ -1,0 +1,80 @@
+name: Update docker-compose on server
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout devops repo
+        uses: actions/checkout@v6
+      - name: Validate docker-compose.yml locally
+        run: |
+          cp .env.example .env
+          docker compose --profile prod config > /dev/null
+          echo "docker-compose.yml is valid"
+          rm -f .env
+      - name: Change server's docker-compose.yml
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/crossfitbuddy
+            mkdir -p .backup
+            cp docker-compose.yml .backup/docker-compose.yml.bak 2>/dev/null || true
+            cp nginx.conf .backup/nginx.conf.bak 2>/dev/null || true
+            cp frontend-nginx.conf .backup/frontend-nginx.conf.bak 2>/dev/null || true
+      - name: Copy compose and nginx configs to server
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: "docker-compose.yml,nginx.conf,frontend-nginx.conf"
+          target: "/opt/crossfitbuddy"
+          overwrite: true
+      - name: Validate and apply on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/crossfitbuddy
+            test -f .env || {
+              echo "ERROR: .env not found on server"
+              exit 1
+            }
+            if ! docker compose --profile prod config > /dev/null; then
+              echo "ERROR: new docker-compose.yml is invalid, rolling back"
+              mv .backup/docker-compose.yml.bak docker-compose.yml
+              exit 1
+            fi
+
+            docker compose --profile prod pull backend frontend
+            docker compose --profile prod up -d --remove-orphans
+            docker compose --profile prod restart nginx frontend
+            docker image prune -f
+
+            echo "Validation and deploy completed"
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/crossfitbuddy
+            echo "Validation failed!! Roll back..."
+            [ -f .backup/docker-compose.yml.bak ] && cp .backup/docker-compose.yml.bak docker-compose.yml
+            [ -f .backup/nginx.conf.bak ] && cp .backup/nginx.conf.bak nginx.conf
+            [ -f .backup/frontend-nginx.conf.bak ] && cp .backup/frontend-nginx.conf.bak frontend-nginx.conf
+            docker compose --profile prod up -d || true
+            echo "Previous state restored"
