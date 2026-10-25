@@ -1,48 +1,66 @@
 services:
 
   postgres:
+    profiles: ["dev", "prod"]
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: crossfitbuddy
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:?Run "cp .env.example .env"}
+      POSTGRES_USER: ${DB_USERNAME:?Run "cp .env.example .env"}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Run "cp .env.example .env"}
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app -d crossfitbuddy"]
+      test: ["CMD-SHELL", "pg_isready -U $${DB_USERNAME} -d $${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    ports:
+      - "${POSTGRES_BIND:-127.0.0.1}:5432:5432"
 
-  minio:
-    image: dhi.io/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
-    volumes:
-      - minio_data:/data
-    restart: unless-stopped
+  # minio:
+  #   profiles: ["dev", "prod"]
+  #   image: dhi.io/minio:latest
+  #   command: server /data --console-address ":9001"
+  #   environment:
+  #     MINIO_ROOT_USER: ${MINIO_USER:?Run "cp .env.example .env"}
+  #     MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:?Run "cp .env.example .env"}
+  #   volumes:
+  #     - minio_data:/data
+  #   restart: unless-stopped
+
+  mailpit:
+    profiles: ["dev", "prod"]
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
   backend:
-    image: ghcr.io/crossfitbuddy/crossfit-buddy-backend:latest
+    profiles: ["prod"]
+    image: ${BACKEND_IMAGE:-ghcr.io/crossfitbuddy/crossfit-buddy-backend}:${IMAGE_TAG:-latest}
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/crossfitbuddy
-      SPRING_DATASOURCE_USERNAME: app
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_USER}
-      MINIO_SECRET_KEY: ${MINIO_PASSWORD}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      # MINIO_ENDPOINT: http://minio:9000
+      # MINIO_ACCESS_KEY: ${MINIO_USER:?Run "cp .env.example .env"}
+      # MINIO_SECRET_KEY: ${MINIO_PASSWORD:?Run "cp .env.example .env"}
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: 1025
+      APP_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
+      # minio:
+      #   condition: service_started
+      mailpit:
         condition: service_started
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/crossfitbuddy/crossfit-buddy-frontend:latest
+    profiles: ["prod"]
+    image: ${FRONTEND_IMAGE:-ghcr.io/crossfitbuddy/crossfit-buddy-frontend}:${IMAGE_TAG:-latest}
     volumes:
       - ./frontend-nginx.conf:/etc/nginx/conf.d/default.conf:ro #перезапись nginx.conf фронта
     depends_on:
@@ -50,6 +68,7 @@ services:
     restart: unless-stopped
 
   nginx:
+    profiles: ["prod"]
     image: nginx:1.27-alpine
     ports:
       - "80:80"
@@ -61,6 +80,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  pg_data:
+  postgres-data:
   minio_data:
     
