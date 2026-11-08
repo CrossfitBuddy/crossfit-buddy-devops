@@ -28,6 +28,9 @@ services:
     volumes:
       - minio_data:/data
     restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
 
   mailpit:
     profiles: ["dev", "prod"]
@@ -43,9 +46,10 @@ services:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_USER:?Run "cp .env.example .env"}
-      MINIO_SECRET_KEY: ${MINIO_PASSWORD:?Run "cp .env.example .env"}
+      MINIO_URL: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_USER:?Run "cp .env.example .env"}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:?Run "cp .env.example .env"}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-crossfitbuddy-avatars}
       SPRING_MAIL_HOST: mailpit
       SPRING_MAIL_PORT: 1025
       APP_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
