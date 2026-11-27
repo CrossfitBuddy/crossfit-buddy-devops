@@ -50,8 +50,6 @@ services:
       MINIO_ROOT_USER: ${MINIO_USER:?Run "cp .env.example .env"}
       MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:?Run "cp .env.example .env"}
       MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-crossfitbuddy-avatars}
-      SPRING_MAIL_HOST: mailpit
-      SPRING_MAIL_PORT: 1025
       APP_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
